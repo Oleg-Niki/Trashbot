@@ -1,0 +1,2 @@
+# Trashbot
+Trash Sorting Robot

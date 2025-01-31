@@ -3,7 +3,7 @@ import serial
 import time
 
 # --- User Parameters ---
-SERIAL_PORT = 'COM7'
+SERIAL_PORT = 'COM8'
 BAUD_RATE = 9600
 CAMERA_INDEX = 0       # 0 for default webcam
 
@@ -28,6 +28,9 @@ if not cap.isOpened():
 lower_red = (170, 120, 70)
 upper_red = (179, 255, 255)
 
+lower_green = (35, 100, 100)   # Adjust based on lighting conditions
+upper_green = (85, 255, 255)
+
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -38,33 +41,34 @@ while True:
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Create a mask for red color
-    mask = cv2.inRange(hsv, lower_red, upper_red)
-    # Optional: Add a second range for red if needed (e.g., upper hue range)
+    # Create masks for red and green
+    mask_red = cv2.inRange(hsv, lower_red, upper_red)
+    mask_green = cv2.inRange(hsv, lower_green, upper_green)
     # Combine masks if necessary.
 
     # Check if we see something red
     # For simplicity, just check if there's a significant number of red pixels
-    red_pixels = cv2.countNonZero(mask)
+    red_pixels = cv2.countNonZero(mask_red)
+    green_pixels = cv2.countNonZero(mask_green)
     height, width = frame.shape[:2]
     # A simple threshold: if more than 5% of the frame is red, we act
+    # Decision logic based on detected colors
     if red_pixels > (0.05 * height * width):
-        # Send a command to Arduino if red object is detected
         command = "MOVE_LEFT\n"
-        ser.write(command.encode('utf-8'))
-        # Read response
-        response = ser.readline().decode('utf-8').strip()
-        print("Arduino says:", response)
+    elif green_pixels > (0.05 * height * width):
+        command = "MOVE_RIGHT\n"
     else:
-        # Otherwise, send a stop command
         command = "STOP\n"
-        ser.write(command.encode('utf-8'))
-        # Read response
-        response = ser.readline().decode('utf-8').strip()
-        print("Arduino says:", response)
 
-    # Show the video feed
+    # Send the command to Arduino
+    ser.write(command.encode('utf-8'))
+    response = ser.readline().decode('utf-8').strip()
+    print(f"Arduino says: {response}")
+
+    # Show video feed with masks
     cv2.imshow('Video', frame)
-    cv2.imshow('Mask', mask)
+    cv2.imshow('Red Mask', mask_red)
+    cv2.imshow('Green Mask', mask_green)
 
     # Press 'q' to quit
     if cv2.waitKey(1) & 0xFF == ord('q'):
